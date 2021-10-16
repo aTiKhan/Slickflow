@@ -45,20 +45,20 @@
         nextactivitytree.mEntity = entity;
 
         var url = '';
-        if (step == "dispatch")
+        if (step === "dispatch")
             url = 'api/wf/GetFirstStepRoleUserTree';
         else
             url = 'api/wf/GetNextStepRoleUserTree';
 
         //get next step information
         jshelper.ajaxPost(url,
-            JSON.stringify(nextactivitytree.mEntity.WfAppRunner),
+            JSON.stringify(entity.WfAppRunner),
             function (result) {
                 if (result.Status === 1) {
-                    //popup step user dialog
-                    var nextStep = result.Entity[0];        //only one step demo
+                    //弹窗步骤人员办理弹窗
+                    var nextStep = result.Entity[0];        //单步演示
                     var zNodes = [
-                        { id: 0, pId: -1, name: kresource.getItem("nextstepflow"), type: "root", open: true },
+                         { id: 0, pId: -1, name: "下一步流转", type: "root", open: true },
                          {
                              id: 1,
                              pId: 0,
@@ -100,28 +100,28 @@
     }
 
     nextactivitytree.sure = function () {
-        //get the next step information
+        //取得下一步节点信息
         var selectedNodes = nextactivitytree.mzTree.getCheckedNodes();
         if (selectedNodes.length <= 0) {
             $.msgBox({
                 title: "DynFlow / GoNext",
-                content: kresource.getItem("nextstepchoosewarnmsg"),
+                content: "请单击选中下一步人员列表再进行流转！",
                 type: "alert"
             });
             return false;
         }
 
-        //only one step demo
+        //单步可选示例
         var nextStep = {};
         nextStep.Users = [];
         var activityGUID = "", activityName="";
         var user = null;
         var userlist = [];
         $.each(selectedNodes, function (i, o) {
-            if (o.type == "activity") {
+            if (o.type === "activity") {
                 activityGUID = o.activityGUID;
                 activityName = o.activityName;
-            } else if (o.type == "user") {
+            } else if (o.type === "user") {
                 user = { UserID: o.uid, UserName: o.name };
                 userlist.push(user);
             }
@@ -133,18 +133,18 @@
         
         $.msgBox({
             title: "Are You Sure",
-            content: kresource.getItem("nextstepchooseconfirmmsg") + activityName,
+            content: "请确认下一步是否要流转到步骤：" + activityName,
             type: "confirm",
             buttons: [{ value: "Yes" }, { value: "Cancel" }],
             success: function (result) {
-                if (result == "Yes") {
+                if (result === "Yes") {
                     jshelper.ajaxPost("api/productorder/" + nextactivitytree.mstepName,
                         JSON.stringify(nextactivitytree.mEntity),
                         function (result) {
-                            if (result.Status == 1) {
+                            if (result.Status === 1) {
                                 $.msgBox({
                                     title: "DynFlow / GoNext",
-                                    content: kresource.getItem("nextstepflowokmsg"),
+                                    content: "流程已经流转到下一步！",
                                     type: "info"
                                 });
                                 $("#modelNextStepForm").modal("hide");

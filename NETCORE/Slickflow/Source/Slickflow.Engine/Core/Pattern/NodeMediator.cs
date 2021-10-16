@@ -24,6 +24,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Slickflow.Data;
+using Slickflow.Module.Localize;
 using Slickflow.Engine.Common;
 using Slickflow.Engine.Xpdl;
 using Slickflow.Engine.Xpdl.Entity;
@@ -32,6 +33,8 @@ using Slickflow.Engine.Business.Entity;
 using Slickflow.Engine.Business.Manager;
 using Slickflow.Engine.Core.Result;
 using Slickflow.Engine.Core.Runtime;
+using Slickflow.Engine.Core.Pattern.Event;
+using Slickflow.Engine.Core.Pattern.Gateway;
 using Slickflow.Engine.Delegate;
 
 namespace Slickflow.Engine.Core.Pattern
@@ -258,7 +261,7 @@ namespace Slickflow.Engine.Core.Pattern
                 int? fromActivityInstanceID = null;
                 string fromActivityGUID = string.Empty;
                 string fromActivityName = string.Empty;
-                if (!(this is NodeMediatorStart))
+                if (IsNotNodeMediatorStart(this) == true)
                 {
                     fromActivityInstanceID = ActivityForwardContext.FromActivityInstance.ID;
                     fromActivityGUID = ActivityForwardContext.FromActivityInstance.ActivityGUID;
@@ -281,14 +284,37 @@ namespace Slickflow.Engine.Core.Pattern
         }
 
         /// <summary>
+        /// 判断是否是起始类型的节点
+        /// </summary>
+        /// <param name="nodeMediator">节点监督器</param>
+        /// <returns>判断结果</returns>
+        private bool IsNotNodeMediatorStart(NodeMediator nodeMediator)
+        {
+            if (!(nodeMediator is NodeMediatorStart))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 触发前执行
         /// </summary>
         protected void OnBeforeExecuteWorkItem()
         {
             var delegateService = GetDelegateService();
-            //var actionList = (this is NodeMediatorStart) ? Linker.FromActivity.ActionList : Linker.ToActivity.ActionList;
             var actionList = Linker.FromActivity.ActionList;
             ActionExecutor.ExecteActionListBefore(actionList, delegateService as IDelegateService);
+
+            //----> 节点流转前，调用活动执行的委托事件
+            var currentActivity = Linker.ToActivity != null ? Linker.ToActivity : Linker.FromActivity;
+            DelegateExecutor.InvokeExternalDelegate(this.Session,
+                EventFireTypeEnum.OnActivityExecuting,
+                currentActivity,
+                ActivityForwardContext);
         }
 
         /// <summary>
@@ -297,23 +323,25 @@ namespace Slickflow.Engine.Core.Pattern
         protected void OnAfterExecuteWorkItem()
         {
             var delegateService = GetDelegateService();
-            var actionList = (this is NodeMediatorEnd) ? Linker.ToActivity.ActionList : Linker.FromActivity.ActionList;
+            var actionList = ((this is NodeMediatorEnd)) ? Linker.ToActivity.ActionList : Linker.FromActivity.ActionList;
             ActionExecutor.ExecteActionListAfter(actionList, delegateService as IDelegateService);
+
+            //----> 节点流转完成后，调用活动完成执行的委托事件
+            var currentActivity = Linker.ToActivity != null ? Linker.ToActivity : Linker.FromActivity;
+            DelegateExecutor.InvokeExternalDelegate(this.Session,
+                EventFireTypeEnum.OnActivityExecuted,
+                currentActivity,
+                ActivityForwardContext);
         }
 
-
         /// <summary>
-        /// 执行外部操作的方法
+        /// 执行代码自动服务内容
         /// </summary>
-        /// <param name="actionList">操作列表</param>
-        /// <param name="delegateService">委托服务</param>
-        private void ExecteActionList(IList<ActionEntity> actionList,
-            IDelegateService delegateService)
+        protected void OnExecutingServiceItem()
         {
-            if (actionList != null && actionList.Count > 0)
-            {
-                ActionExecutor.ExecteActionList(actionList, delegateService);
-            }
+            var delegateService = GetDelegateService();
+            var serviceList = Linker.ToActivity.ServiceList;
+            ServiceExecutor.ExecteServiceList(serviceList, delegateService as IDelegateService);
         }
         #endregion
 
@@ -324,7 +352,8 @@ namespace Slickflow.Engine.Core.Pattern
         /// 其它方式为直接指定：比如跳转，返送等，不需要解析，不能等同于正常流转解析
         /// </summary>
         /// <param name="isNotParsedByTransition">不需要走解析流转</param>
-        internal void ContinueForwardCurrentNode(bool isNotParsedByTransition)
+        /// <param name="session">数据会话</param>
+        internal void ContinueForwardCurrentNode(bool isNotParsedByTransition, IDbSession session)
         {
             try
             {
@@ -353,14 +382,16 @@ namespace Slickflow.Engine.Core.Pattern
                     //普通正常运行
                     var nextActivityMatchedResult = this.ActivityForwardContext.ProcessModel.GetNextActivityList(
                         this.Linker.FromActivityInstance.ActivityGUID,
+                        ActivityForwardContext.TaskID,
                         activityResource.ConditionKeyValuePair,
                         activityResource,
-                        (a, b) => a.NextActivityPerformers.ContainsKey(b.ActivityGUID));
+                        (a, b) => a.NextActivityPerformers.ContainsKey(b.ActivityGUID),
+                        session);
 
                     if (nextActivityMatchedResult.MatchedType != NextActivityMatchedType.Successed
                         || nextActivityMatchedResult.Root.HasChildren == false)
                     {
-                        throw new WfRuntimeException("没有匹配的后续流转节点，流程虽然能处理当前节点，但是无法流转到下一步！");
+                        throw new WfRuntimeException(LocalizeHelper.GetEngineMessage("nodemediator.ContinueForwardCurrentNode.warn"));
                     }
                     
                     ContinueForwardCurrentNodeRecurisivly(this.Linker.FromActivity,
@@ -378,7 +409,7 @@ namespace Slickflow.Engine.Core.Pattern
             }
             catch (System.Exception ex)
             {
-                throw new WfRuntimeException(string.Format("NodeMediator流转时发生错误：{0}", ex.Message), ex);
+                throw new WfRuntimeException(LocalizeHelper.GetEngineMessage("nodemediator.ContinueForwardCurrentNode.error", ex.Message), ex);
             }
         }
 
@@ -415,7 +446,7 @@ namespace Slickflow.Engine.Core.Pattern
                             this.ActivityForwardContext.ProcessModel,
                             Session);
 
-                            ICompleteAutomaticlly autoGateway = (ICompleteAutomaticlly)gatewayNodeMediator;
+                            ICompleteGatewayAutomaticlly autoGateway = (ICompleteGatewayAutomaticlly)gatewayNodeMediator;
                             nodeExecutedResult = autoGateway.CompleteAutomaticlly(ActivityForwardContext.ProcessInstance,
                                 comp.Transition.TransitionGUID,
                                 fromActivity,
@@ -437,13 +468,13 @@ namespace Slickflow.Engine.Core.Pattern
                             {
                                 mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
                                     WfNodeMediatedFeedback.OrJoinOneBranchHasBeenFinishedWaittingOthers));
-                                LogManager.RecordLog("递归执行节点方法异常",
+                                LogManager.RecordLog("ContinueForwardCurrentNodeRecurisivlyExeception",
                                     LogEventType.Exception,
                                     LogPriority.Normal,
                                     null,
                                     new WfRuntimeException(
-                                        string.Format("第一个满足条件的节点已经被成功执行，此后的节点被阻止在OrJoin类型的节点! 详细状态类型：{0}", nodeExecutedResult.Status.ToString())
-                                        ));
+                                        LocalizeHelper.GetEngineMessage("nodemediator.ContinueForwardCurrentNodeRecurisivly.warn"))
+                                    );
                             }
                         }
                         else
@@ -453,71 +484,35 @@ namespace Slickflow.Engine.Core.Pattern
                             {
                                 mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
                                     WfNodeMediatedFeedback.NeedOtherGatewayBranchesToJoin));
-                                LogManager.RecordLog("递归执行节点方法异常",
+                                LogManager.RecordLog("NodeMediator.ContinueForwardCurrentNodeRecurisivly.IsWaintingOneOfJoin.Exception",
                                     LogEventType.Exception,
                                     LogPriority.Normal,
                                     null,
-                                    new WfRuntimeException("等待其它需要合并的分支!"));
+                                    new WfRuntimeException(LocalizeHelper.GetEngineMessage("nodemediator.ContinueForwardCurrentNodeRecurisivly.waitingothers.warn"))
+                                    );
                             }
                             else
                             {
                                 mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
                                     WfNodeMediatedFeedback.OtherUnknownReasonToDebug));
-                                LogManager.RecordLog("递归执行节点方法异常",
+                                LogManager.RecordLog("NodeMediator.ContinueForwardCurrentNodeRecurisivly.IsWaintingOneOfJoin.OtherUnknownReason.Exception",
                                     LogEventType.Exception,
                                     LogPriority.Normal,
                                     null,
-                                    new WfRuntimeException("等待其它需要合并的分支或发生其它类型的异常!"));
+                                    new WfRuntimeException(LocalizeHelper.GetEngineMessage("nodemediator.ContinueForwardCurrentNodeRecurisivly.otherreason.warn"))
+                                    );
                             }
-                        }
-                    }
-                    else if (XPDLHelper.IsIntermediateEventComponentNode(comp.Activity.ActivityType) == true)
-                    {
-                        //中间事件类型节点，调用外部业务逻辑，然后流程继续向下流转
-                        NodeMediatorEvent eventNodeMediator = NodeMediatorFactory.CreateNodeMediatorEvent(ActivityForwardContext,
-                            comp.Activity,
-                            this.ActivityForwardContext.ProcessModel,
-                            Session);
-                        eventNodeMediator.ExecuteWorkItem();
-
-                        ICompleteAutomaticlly autoEvent = (ICompleteAutomaticlly)eventNodeMediator;
-                        nodeExecutedResult = autoEvent.CompleteAutomaticlly(ActivityForwardContext.ProcessInstance,
-                            comp.Transition.TransitionGUID,
-                            fromActivity,
-                            fromActivityInstance,
-                            ActivityForwardContext.ActivityResource.AppRunner,
-                            Session);
-
-                        if (nodeExecutedResult.Status == NodeAutoExecutedStatus.Successed)
-                        {
-                            //遍历后续子节点
-                            ContinueForwardCurrentNodeRecurisivly(eventNodeMediator.EventActivity,
-                                eventNodeMediator.EventActivityInstance,
-                                comp,
-                                conditionKeyValuePair,
-                                isNotParsedForward,
-                                ref mediatorResult);
-                        }
-                        else
-                        {
-                            mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
-                                WfNodeMediatedFeedback.IntermediateEventFailed));
-                            LogManager.RecordLog("中间事件节点执行方法异常",
-                                LogEventType.Exception,
-                                LogPriority.Normal,
-                                null,
-                                new WfRuntimeException(nodeExecutedResult.Status.ToString()));
                         }
                     }
                     else
                     {
                         mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
                             WfNodeMediatedFeedback.UnknownNodeTypeToWatch));
-                        LogManager.RecordLog("递归执行节点方法异常",
+                        LogManager.RecordLog("NodeMediator.UnknownType.Exception",
                             LogEventType.Exception,
                             LogPriority.Normal,
                             null,
-                            new WfRuntimeException(string.Format("XML文件定义了未知的节点类型，执行失败，节点类型信息：{0}",
+                            new WfRuntimeException(LocalizeHelper.GetEngineMessage("nodemediator.ContinueForwardCurrentNodeRecurisivly.unknowntype.warn",
                                 comp.Activity.ActivityType.ToString()))
                             );
                     }
@@ -547,64 +542,23 @@ namespace Slickflow.Engine.Core.Pattern
                         {
                             mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
                                 WfNodeMediatedFeedback.NeedOtherGatewayBranchesToJoin));
-                            LogManager.RecordLog("递归执行节点方法异常",
+                            LogManager.RecordLog("NodeMediator.TaskNode.NeedOtherGatewayBranchesToJoin.Exception",
                                 LogEventType.Exception,
                                 LogPriority.Normal,
                                 null,
-                                new WfRuntimeException("等待其它需要合并的分支!"));
+                                new WfRuntimeException(LocalizeHelper.GetEngineMessage("nodemediator.ContinueForwardCurrentNodeRecurisivly.waitingothers.warn"))
+                                );
                         }
                         else
                         {
                             mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
                                 WfNodeMediatedFeedback.OtherUnknownReasonToDebug));
-                            LogManager.RecordLog("递归执行节点方法异常",
+                            LogManager.RecordLog("NodeMediator.TaskNode.NeedOtherGatewayBranchesToJoin.OtherUnkownReaseon.Exception",
                                 LogEventType.Exception,
                                 LogPriority.Normal,
                                 null,
-                                new WfRuntimeException("等待其它需要合并的分支或发生其它类型的异常!"));
-                        }
-                    }
-                }
-                else if (comp.Activity.ActivityType == ActivityTypeEnum.MultipleInstanceNode)       //多实例会签节点
-                {
-                    //此节点类型为任务节点：根据fromActivityInstance的类型判断是否可以创建任务
-                    if (fromActivityInstance.ActivityState == (short)ActivityStateEnum.Completed)
-                    {
-                        //创建新多实例节点
-                        NodeMediator mediatorMICreator = new NodeMediatorMICreator(Session);
-                        mediatorMICreator.CreateActivityTaskTransitionInstance(comp.Activity,
-                            ActivityForwardContext.ProcessInstance,
-                            fromActivityInstance,
-                            comp.Transition.TransitionGUID,
-                            comp.Transition.DirectionType == TransitionDirectionTypeEnum.Loop ?
-                                TransitionTypeEnum.Loop : TransitionTypeEnum.Forward, //根据Direction方向确定是否是自身循环
-                            isNotParsedForward == true ?
-                                TransitionFlyingTypeEnum.ForwardFlying : TransitionFlyingTypeEnum.NotFlying,
-                            ActivityForwardContext.ActivityResource,
-                            Session);
-                    }
-                    else
-                    {
-                        //下一步的任务节点没有创建，需给出提示信息
-                        if (IsWaitingOneOfJoin(fromActivity.GatewayDirectionType) == true)
-                        {
-                            mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
-                                WfNodeMediatedFeedback.NeedOtherGatewayBranchesToJoin));
-                            LogManager.RecordLog("递归执行节点方法异常",
-                                LogEventType.Exception,
-                                LogPriority.Normal,
-                                null,
-                                new WfRuntimeException("等待其它需要合并的分支!"));
-                        }
-                        else
-                        {
-                            mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
-                                WfNodeMediatedFeedback.OtherUnknownReasonToDebug));
-                            LogManager.RecordLog("递归执行节点方法异常",
-                                LogEventType.Exception,
-                                LogPriority.Normal,
-                                null,
-                                new WfRuntimeException("等待其它需要合并的分支或发生其它类型的异常!"));
+                                new WfRuntimeException(LocalizeHelper.GetEngineMessage("nodemediator.ContinueForwardCurrentNodeRecurisivly.otherreason.warn"))
+                                );
                         }
                     }
                 }
@@ -631,7 +585,7 @@ namespace Slickflow.Engine.Core.Pattern
                     if (fromActivityInstance.ActivityState == (short)ActivityStateEnum.Completed)
                     {
                         //此节点为完成结束节点，结束流程
-                        NodeMediator endMediator = new NodeMediatorEnd(ActivityForwardContext, Session);
+                        var endMediator = NodeMediatorFactory.CreateNodeMediatorEnd(ActivityForwardContext, comp.Activity, Session);
                         endMediator.Linker.ToActivity = comp.Activity;
 
                         //创建结束节点实例及转移数据
@@ -651,21 +605,23 @@ namespace Slickflow.Engine.Core.Pattern
                         {
                             mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
                                 WfNodeMediatedFeedback.NeedOtherGatewayBranchesToJoin));
-                            LogManager.RecordLog("递归执行节点方法异常",
+                            LogManager.RecordLog("NodeMediator.EndNode.NeedOtherGatewayBranchesToJoin.Exception",
                                 LogEventType.Exception,
                                 LogPriority.Normal,
                                 null,
-                                new WfRuntimeException("等待其它需要合并的分支!"));
+                                new WfRuntimeException(LocalizeHelper.GetEngineMessage("nodemediator.ContinueForwardCurrentNodeRecurisivly.waitingothers.warn"))
+                                );
                         }
                         else
                         {
                             mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
                                 WfNodeMediatedFeedback.OtherUnknownReasonToDebug));
-                            LogManager.RecordLog("递归执行节点方法异常",
+                            LogManager.RecordLog("NodeMediator.EndNode.NeedOtherGatewayBranchesToJoin.OtherUnkownReaseon.Exception",
                                 LogEventType.Exception,
                                 LogPriority.Normal,
                                 null,
-                                new WfRuntimeException("等待其它需要合并的分支或发生其它类型的异常!"));
+                                new WfRuntimeException(LocalizeHelper.GetEngineMessage("nodemediator.ContinueForwardCurrentNodeRecurisivly.otherreason.warn"))
+                                );
                         }
                     }
                 }
@@ -673,11 +629,11 @@ namespace Slickflow.Engine.Core.Pattern
                 {
                     mediatorResult.Add(WfNodeMediatedResult.CreateNodeMediatedResultWithException(
                         WfNodeMediatedFeedback.UnknownNodeTypeToWatch));
-                    LogManager.RecordLog("递归执行节点方法异常", 
+                    LogManager.RecordLog("NodeMediator.UnkonwNodeType.Exception", 
                         LogEventType.Exception, 
                         LogPriority.Normal,
                         null,
-                        new WfRuntimeException(string.Format("XML文件定义了未知的节点类型，执行失败，节点类型信息：{0}", 
+                        new WfRuntimeException(LocalizeHelper.GetEngineMessage("nodemediator.ContinueForwardCurrentNodeRecurisivly.unknowntype.warn",
                             comp.Activity.ActivityType.ToString()))
                         );
                 }
@@ -737,7 +693,7 @@ namespace Slickflow.Engine.Core.Pattern
         {
             if (activityResource.NextActivityPerformers == null)
             {
-                throw new WorkflowException("无法创建任务，流程流转下一步的办理人员不能为空！");
+                throw new WorkflowException(LocalizeHelper.GetEngineMessage("nodemediator.createnewtask.warn"));
             }
 
             TaskManager.Insert(toActivityInstance,
@@ -758,11 +714,40 @@ namespace Slickflow.Engine.Core.Pattern
         {
             ActivityInstanceEntity entity = ActivityInstanceManager.CreateActivityInstanceObject(processInstance.AppName,
                 processInstance.AppInstanceID,
+                processInstance.AppInstanceCode,
                 processInstance.ID,
                 activity,
                 runner);
 
             return entity;
+        }
+
+        /// <summary>
+        /// 插入实例数据
+        /// </summary>
+        /// <param name="activityInstance">活动资源</param>
+        /// <param name="session">会话</param>
+        protected virtual int InsertActivityInstance(ActivityInstanceEntity activityInstance,
+            IDbSession session)
+        {
+            return ActivityInstanceManager.Insert(activityInstance, session);
+        }
+
+
+        /// <summary>
+        /// 节点对象的完成方法
+        /// </summary>
+        /// <param name="ActivityInstanceID">活动实例ID</param>
+        /// <param name="runner">运行者</param>
+        /// <param name="session">会话</param>
+        protected virtual void CompleteActivityInstance(int ActivityInstanceID,
+            WfAppRunner runner,
+            IDbSession session)
+        {
+            //设置完成状态
+            ActivityInstanceManager.Complete(ActivityInstanceID,
+                runner,
+                session);
         }
 
         /// <summary>
@@ -871,6 +856,7 @@ namespace Slickflow.Engine.Core.Pattern
             ActivityInstanceEntity entity = ActivityInstanceManager.CreateBackwardActivityInstanceObject(
                 processInstance.AppName,
                 processInstance.AppInstanceID,
+                processInstance.AppInstanceCode,
                 processInstance.ID,
                 this.BackwardContext.BackwardToTaskActivity,
                 backwardType,
@@ -957,7 +943,7 @@ namespace Slickflow.Engine.Core.Pattern
             }
             else
             {
-                throw new ApplicationException("下一步办理用户信息不能为空！");
+                throw new ApplicationException(LocalizeHelper.GetEngineMessage("nodemediator.generateactivityassigneduserinfo.warn"));
             }
             return toActivityInstance;
         }
@@ -995,11 +981,15 @@ namespace Slickflow.Engine.Core.Pattern
             var message = string.Empty;
             if (WfNodeMediatedResult.Feedback == WfNodeMediatedFeedback.ForwardToNextSequenceTask)
             {
-                message = "串行会(加)签，设置下一个执行节点的任务进入运行状态！";
+                message = LocalizeHelper.GetEngineMessage("nodemediator.getnodemediatedmessage.next.warn");
             }
             else if (WfNodeMediatedResult.Feedback == WfNodeMediatedFeedback.WaitingForCompletedMore)
             {
-                message = "并行会(加)签，等待节点到达足够多的完成比例！";
+                message = LocalizeHelper.GetEngineMessage("nodemediator.GetNodeMediatedMessage.waiting.warn");
+            }
+            else if (WfNodeMediatedResult.Feedback == WfNodeMediatedFeedback.NotEnoughApprovalBranchesCount)
+            {
+                message = LocalizeHelper.GetEngineMessage("nodemediator.GetNodeMediatedMessage.notenoughapproval.warn");
             }
             return message;
         }

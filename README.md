@@ -8,9 +8,12 @@
 ![](https://img.shields.io/github/issues/besley/slickflow.svg) 
 
 
-.NET/.NETCore Workflow Engine With Full Source Code 
+**A Quick Design and Testing Demo:**  
+![Large Order Demo](https://github.com/besley/besley.github.io/blob/master/Gif/slickflow-largeorder-andsplit-demo-en.gif)
+
+**.NET/.NETCore Workflow Engine With Full Source Code** 
 1. **.NET, .NET CORE version both supported**  
- Slickflow is an open-source project based on .NET Framework 4.5, .NET CORE 2; It's easy to use engine product into the cross-platform application.  
+ Slickflow is an open-source project based on .NET5; It's easy to use engine product into the cross-platform application.  
 2. **BPMN graphic style process diagram**   
  Slickflow is using BPMN notation to describe process diagram, the Slickflow designer is HTML5 graph editor and user-friendly to business process communication and business analysis.  
 3. **High performance with Dapper.NET library**  
@@ -44,7 +47,9 @@
  **11). Reverse**  
     reverse the process instance alive when completed.  
  **12). Jump**  
-    jump the process over by several steps forward or backward. 
+    jump the process over by several steps forward or backward.   
+ **13). MessageQueue(RabbitMQ)**  
+    message publishing and subscribing to implement message throwing and catching. 
     
 **6. Process Version**  
      the process has version property to upgrade a new definition due to the business process changed.    
@@ -132,6 +137,7 @@ https://github.com/besley/Slickflow/wiki
 https://www.codeproject.com/Articles/5246528/Slickflow-NET-Core-Open-Source-Workflow-Engine 
 https://www.codeproject.com/Articles/5252483/Slickflow-Coding-Graphic-Model-User-Manual  
 **Slickflow website:**  
+http://www.slickflow.net  
 http://www.slickflow.com  
 **Demo:**  
 http://www.slickflow.com/demo/index  
@@ -141,10 +147,60 @@ http://demo.slickflow.com/sfd/
 http://demo.slickflow.com/sfd/model  
 **Document:**  
 http://www.slickflow.com/wiki/index  
-**Discourse:**  
-https://forum.slickflow.com/  
+**Quasar Form Builder**  
+The online dynamic form demo:http://demo.slickflow.com/sqd/   
+The SlickQua project:http://github.com/besley/slickqua/   
 
-**Slickflow(1.7.5.6) 企业版：** 
+![AskForLeave Form Approval](https://github.com/besley/besley.github.io/blob/master/Gif/SlickQua-Ask4Leave-Demo.gif)  
+
+**Slickflow(1.7.7.0) 企业版：** 
+
+2021-09-28
+1. 引擎增加三种类型的中间事件(Intermediate)处理节点定时、消息和条件；
+2. 重新调整HangFire作业功能，检测流程实例活动实例的JobTimer数据；
+3. 简化并合并语言本地化项目，只保留Engine, Desiger和Web三种项目类型；
+
+2021-07-18
+1. 完成动态表单设计器Quasar版，并发版；
+2. 完成Quasar版本的多语言及提示组件配置和开发；
+3. 完成新版本WebDemo请假项目的开发，测试并发布；
+
+2021-04-29
+1. 引擎产品升级到.NET5版本；
+2. Quasar(VUE)请假流程Demo示例；
+3. 实现会签结合审批网关分支流转模式；
+4. 设计器及测试工具多语言(中英文)界面显示；
+5. 增加pgsql脚本，满足用户数据库需求；
+
+
+2021-02-26
+1. 动态子流程调用功能实现；
+2. 增加会签通过率的审批网关（ApprovalOrSplit）模式；
+3. 引擎项目升级到.netcore3.1版本，asp.net core 5版本；
+4. 增加西班牙语(Spanish)语言本地化功能；
+
+2020-11-11
+1. 新增加自动服务节点(ServiceTask)；
+2. 新增加审批网关类型(ApprovalOrSplit)；
+3. 增加或分支(OrSplit)条件都不满足时的默认分支选项；
+4. 新增表单版本功能；
+
+2020-09-14
+1. 完成表单控件数据源绑定功能；
+2. 完成表单数据控件级联事件处理；
+3. 完成表单控件基本事件响应功能；
+4. 修正表单绑定流程节点权限操作功能；
+
+2020-07-30
+1. 流程设计器Linux版本的路径大小写问题解决；
+2. 跨流程消息交互功能完整测试通过；
+3. 流程各个模块项目多语言功能完整实现；
+
+2020-05-11
+1. 中间消息节点Throw/Catch功能定义实现;
+2. 开始消息启动节点：消息发布订阅启动流程实现;
+3. 主流程和泳道流程的版本管理、更新和删除管理；
+
 2020-04-02
 1. 集成RabbitMQ消息队列;
 2. 实现多语言(中文\英文)环境配置项目;
@@ -350,5 +406,5 @@ http://www.slickflow.com
 http://www.slickflow.com/demo/index  
 **文档:**  
 http://www.slickflow.com/wiki/index  
-**捐赠:**  
-http://www.slickflow.com/donate/index  
+
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](william.ligong@yahoo.com)

@@ -6,37 +6,45 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using System.Diagnostics;
+using Slickflow.Data;
 using Slickflow.Module.Resource;
 using Slickflow.Engine.Utility;
 using Slickflow.Engine.Common;
 using Slickflow.Engine.Business.Entity;
-using Slickflow.Engine.Xpdl.Schedule;
 using Slickflow.Engine.Xpdl.Entity;
+using Slickflow.Engine.Xpdl.Schedule;
 
 namespace Slickflow.Engine.Xpdl
 {
     /// <summary>
     /// 流程模型解析
     /// </summary>
-    internal interface IProcessModel 
+    public interface IProcessModel 
     {
         ProcessEntity ProcessEntity { get; set; }
         XmlDocument XmlProcessDefinition { get; }
 
         //方法列表
-        ActivityEntity GetFirstActivity();
         ActivityEntity GetStartActivity();
+        ActivityEntity GetFirstActivity();
+        NextActivityMatchedResult GetFirstActivityList(ActivityEntity startActivity, IDictionary<string, string> conditionKeyValuePair);
+        ActivityEntity GetActivityByType(string xmlContent, string processGUID,  ActivityTypeEnum activityType);
         ActivityEntity GetEndActivity();
         ActivityEntity GetActivity(string activityGUID);
+        IList<ActivityEntity> GetActivityList();
         ActivityEntity GetNextActivity(string activityGUID);
-        IList<NodeView> GetNextActivityTree(string currentActivityGUID,
-            IDictionary<string, string> condition = null);
+        IList<NodeView> GetNextActivityTree(string currentActivityGUID);
+        IList<NodeView> GetNextActivityTree(string currentActivityGUID, IDictionary<string, string> conditions);
+        NextActivityTreeResult GetNextActivityTree(string currentActivityGUID,
+            Nullable<int> taskID,
+            IDictionary<string, string> conditions,
+            IDbSession session);
         NextActivityMatchedResult GetNextActivityList(string currentActivityGUID,
-            IDictionary<string, string> conditionKeyValuePair = null);
-        NextActivityMatchedResult GetNextActivityList(string currentActivityGUID,
+            Nullable<int> taskID,
             IDictionary<string, string> conditionKeyValuePair,
             ActivityResource activityResource,
-            Expression<Func<ActivityResource, ActivityEntity, bool>> expression);
+            Expression<Func<ActivityResource, ActivityEntity, bool>> expression,
+            IDbSession session);
         IList<ActivityEntity> GetNextActivityListWithoutCondition(string activityGUID);
 
         IList<NodeView> GetPreviousActivityTree(string currentActivityGUID);
@@ -70,5 +78,6 @@ namespace Slickflow.Engine.Xpdl
         IList<Role> GetRoles();
         IList<Role> GetActivityRoles(string activityGUID);
         IDictionary<string, PerformerList> GetActivityPerformers(string activityGUID);
+        IDictionary<string, PerformerList> GetActivityPerformers(IList<NodeView> nextActivityTree);
     }
 }

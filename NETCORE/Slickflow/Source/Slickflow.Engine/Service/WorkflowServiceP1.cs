@@ -34,7 +34,7 @@ using Slickflow.Engine.Xpdl;
 namespace Slickflow.Engine.Service
 {
     /// <summary>
-    /// 工作流服务（数据查询）
+    /// 工作流服务(数据查询)
     /// </summary>
     public partial class WorkflowService : IWorkflowService
     {
@@ -101,21 +101,8 @@ namespace Slickflow.Engine.Service
         /// <returns>流程实例实体</returns>
         public ProcessInstanceEntity GetRunningProcessInstance(WfAppRunner runner)
         {
-            ProcessInstanceEntity entity = null;
-            IDbConnection conn = SessionFactory.CreateConnection();
-            try
-            {
-                var pim = new ProcessInstanceManager();
-                entity = pim.GetRunningProcessInstance(conn, runner.AppInstanceID, runner.ProcessGUID);
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-                conn.Close();
-            }
+            var pim = new ProcessInstanceManager();
+            var entity = pim.GetRunningProcessInstance(runner.AppInstanceID, runner.ProcessGUID);
             return entity;
         }
 
@@ -127,20 +114,8 @@ namespace Slickflow.Engine.Service
         /// <returns>流程实例记录数</returns>
         public Int32 GetProcessInstanceCount(string processGUID, string version)
         {
-            IDbConnection conn = SessionFactory.CreateConnection();
-            try
-            {
-                var pim = new ProcessInstanceManager();
-                return pim.GetProcessInstanceCount(conn, processGUID, version);
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-                conn.Close();
-            }
+            var pim = new ProcessInstanceManager();
+            return pim.GetProcessInstanceCount(processGUID, version);
         }
 
         /// <summary>
@@ -256,6 +231,12 @@ namespace Slickflow.Engine.Service
             return tm.Entrust(entrusted, cancalOriginalTask);
         }
 
+        public Boolean ReplaceTask(int taskID, List<TaskReplacedEntity> replaced, WfAppRunner runner)
+        {
+            var tm = new TaskManager();
+            return tm.Replace(taskID, replaced, runner);
+        }
+
         /// <summary>
         /// 设置流程实例的过期时间
         /// </summary>
@@ -267,6 +248,38 @@ namespace Slickflow.Engine.Service
         {
             var pim = new ProcessInstanceManager();
             return pim.SetOverdue(processInstanceID, overdueDateTime, runner);
+        }
+
+        /// <summary>
+        /// 设置活动实例的定时作业为完成状态
+        /// (用于HangFire后台轮询任务)
+        /// </summary>
+        /// <param name="conn">链接</param>
+        /// <param name="processInstanceID">流程实例ID</param>
+        /// <param name="trans">事务</param>
+        public void SetProcessJobTimerCompleted(IDbConnection conn, int processInstanceID, IDbTransaction trans)
+        {
+            var pim = new ProcessInstanceManager();
+            var processInstance = pim.GetById(conn, processInstanceID, trans);
+            processInstance.JobTimerStatus = (short)JobTimerStatusEnum.Completed;
+            processInstance.JobTimerTreatedDateTime = System.DateTime.Now;
+            pim.Update(conn, processInstance, trans);
+        }
+
+        /// <summary>
+        /// 设置活动实例的定时作业为完成状态
+        /// (用于HangFire后台轮询任务)
+        /// </summary>
+        /// <param name="conn">链接</param>
+        /// <param name="activityInstanceID">活动实例ID</param>
+        /// <param name="trans">事务</param>
+        public void SetActivityJobTimerCompleted(IDbConnection conn, int activityInstanceID, IDbTransaction trans)
+        {
+            var aim = new ActivityInstanceManager();
+            var activityInstance = aim.GetById(conn, activityInstanceID, trans);
+            activityInstance.JobTimerStatus = (short)JobTimerStatusEnum.Completed;
+            activityInstance.JobTimerTreatedDateTime = System.DateTime.Now;
+            aim.Update(conn, activityInstance, trans);
         }
 
         /// <summary>
@@ -303,8 +316,74 @@ namespace Slickflow.Engine.Service
         public IList<ActivityInstanceEntity> GetRunningActivityInstance(TaskQuery query)
         {
             var aim = new ActivityInstanceManager();
-            var list = aim.GetRunningActivityInstanceList(query.AppInstanceID, query.ProcessGUID).ToList();
+            var list = aim.GetRunningActivityInstanceList(query.AppInstanceID, query.ProcessGUID, query.Version).ToList();
             return list;
+        }
+
+        /// <summary>
+        /// 获取流程变量
+        /// </summary>
+        /// <param name="variableID">变量ID</param>
+        /// <returns>变量实体</returns>
+        public ProcessVariableEntity GetProcessVariable(int variableID)
+        {
+            var pvm = new ProcessVariableManager();
+            var entity = pvm.GetVariableEntity(variableID);
+
+            return entity;
+        }
+
+        /// <summary>
+        /// 获取流程变量
+        /// </summary>
+        /// <param name="query">查询</param>
+        /// <returns>变量实体</returns>
+        public ProcessVariableEntity GetProcessVariable(ProcessVariableQuery query)
+        {
+            var pvm = new ProcessVariableManager();
+            var entity = pvm.GetVariableEntity(query);
+            return entity;
+        }
+
+        /// <summary>
+        /// 获取变量列表
+        /// </summary>
+        /// <param name="query">变量查询</param>
+        /// <returns>活动实例列表</returns>
+        public IList<ProcessVariableEntity> GetProcessVariableList(ProcessVariableQuery query)
+        {
+            var pvm = new ProcessVariableManager();
+            var list = pvm.GetVariableList(query.ProcessInstanceID);
+            return list;
+        }
+
+        /// <summary>
+        /// 删除流程变量
+        /// </summary>
+        /// <param name="variableID">变量ID</param>
+        public void DeleteProcessVariable(int variableID)
+        {
+            var pvm = new ProcessVariableManager();
+            pvm.DeleteVariable(variableID);
+        }
+
+        /// <summary>
+        /// 验证触发表达式是否满足
+        /// </summary>
+        /// <param name="conn">链接</param>
+        /// <param name="processInstanceID">流程实例ID</param>
+        /// <param name="expression">表达式</param>
+        /// <param name="trans">事务</param>
+        /// <returns></returns>
+        public Boolean ValidateProcessVariable(int processInstanceID, string expression)
+        {
+            var isValidated = false;
+            using (var conn = SessionFactory.CreateConnection())
+            {
+                var pvm = new ProcessVariableManager();
+                isValidated = pvm.ValidateProcessVariable(conn, processInstanceID, expression, null);
+            }
+            return isValidated;
         }
         #endregion
 
@@ -317,6 +396,18 @@ namespace Slickflow.Engine.Service
         {
             var pim = new ProcessInstanceManager();
             pim.Update(entity);
+        }
+
+        /// <summary>
+        /// 保存流程变量
+        /// </summary>
+        /// <param name="entity">流程实体</param>
+        /// <returns>流程变量ID</returns>
+        public int SaveProcessVariable(ProcessVariableEntity entity)
+        {
+            var pvm = new ProcessVariableManager();
+            var entityID = pvm.SaveVariable(entity);
+            return entityID;
         }
         #endregion
 
@@ -364,8 +455,8 @@ namespace Slickflow.Engine.Service
         /// <summary>
         /// 根据角色获取用户列表
         /// </summary>
-        /// <param name="roleID"></param>
-        /// <returns></returns>
+        /// <param name="roleID">角色ID</param>
+        /// <returns>用户列表</returns>
         public IList<User> GetUserListByRole(string roleID)
         {
             return ResourceService.GetUserListByRole(roleID);
@@ -374,8 +465,8 @@ namespace Slickflow.Engine.Service
         /// <summary>
         /// 获取节点上的执行者列表
         /// </summary>
-        /// <param name="nextNode"></param>
-        /// <returns></returns>
+        /// <param name="nextNode">节点</param>
+        /// <returns>执行用户列表</returns>
         public PerformerList GetPerformerList(NodeView nextNode)
         {
             var performerList = PerformerBuilder.CreatePerformerList(nextNode.Roles);

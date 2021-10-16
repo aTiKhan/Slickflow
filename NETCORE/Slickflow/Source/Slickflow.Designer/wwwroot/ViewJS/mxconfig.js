@@ -26,19 +26,20 @@ var mxconfig = (function () {
 
     //style configuration
     mxconfig.style = {};
-    mxconfig.style["start"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/event.png';
-    mxconfig.style["end"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/event_end.png';
-    mxconfig.style["start-timer"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/start_event_timer.png';
-    mxconfig.style["end-timer"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/end_event_timer.png';
-    mxconfig.style["start-message"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/message.png';
-    mxconfig.style["end-message"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/end_event_message.png';
-    mxconfig.style["intermediate"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/intermediate.png';
-    mxconfig.style["intermediate-timer"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/intermediate_event_timer.png';
+    mxconfig.style["start"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/event.png';
+    mxconfig.style["end"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/event_end.png';
+    mxconfig.style["start-timer"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/start_event_timer.png';
+    mxconfig.style["end-timer"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/end_event_timer.png';
+    mxconfig.style["start-message"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/message.png';
+    mxconfig.style["end-message"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/end_event_message.png';
+    mxconfig.style["intermediate"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/intermediate.png';
+    mxconfig.style["intermediate-timer"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/intermediate_event_timer.png';
     mxconfig.style["subprocess"] = 'rectangle';
-    mxconfig.style["gateway-split"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/fork.png';
-    mxconfig.style["gateway-join"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/merge.png';
-    mxconfig.style["subprocess"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/subprocess.png';;
-    mxconfig.style["multipleinstance"] = 'symbol;image=scripts/mxGraph/src/editor/images/symbols/multiple_instance_task.png';
+    mxconfig.style["gateway-split"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/fork.png';
+    mxconfig.style["gateway-join"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/merge.png';
+    mxconfig.style["subprocess"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/subprocess.png';;
+    mxconfig.style["multipleinstance"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/multiple_instance_task.png';
+    mxconfig.style["service"] = 'symbol;image=Scripts/mxGraph/src/editor/images/symbols/service_task.png';
 
     mxconfig.getVertexStyle = function(activity){
         var style = null;
@@ -73,7 +74,10 @@ var mxconfig = (function () {
 		}
 		else if (nodeType === kmodel.Config.NODE_TYPE_MULTIPLEINSTANCE) {
 			style = mxconfig.style["multipleinstance"];
-		}
+        }
+        else if (nodeType === kmodel.Config.NODE_TYPE_SERVICE) {
+            style = mxconfig.style["service"];
+        }
 		else if (nodeType === kmodel.Config.NODE_TYPE_GATEWAY) {
 			style = mxconfig.style["gateway-split"];
 		}

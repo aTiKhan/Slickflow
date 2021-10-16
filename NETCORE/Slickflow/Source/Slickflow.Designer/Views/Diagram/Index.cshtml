@@ -29,7 +29,7 @@
                 border-style: solid;
                 border-color: #F2F2F2;
                 border-width: 1px;
-                background: url('scripts/mxGraph/src/editor/images/grid.gif');
+                background: url('Scripts/mxGraph/src/editor/images/grid.gif');
             }
 
         hr {
@@ -77,7 +77,6 @@
     <!--helper-->
     <script type="text/javascript" src="~/Scripts/slick.event.js"></script>
     <script type="text/javascript" src="~/Scripts/jshelper.js"></script>
-    <script type="text/javascript" src="~/Scripts/localhelper.js"></script>
     <script type="text/javascript" src="~/Scripts/xmlhelper.js"></script>
     <script type="text/javascript" src="~/Scripts/vkbeautify.js"></script>
     <script type="text/javascript" src="~/Scripts/XMLWriter-1.0.0-min.js"></script>
@@ -85,6 +84,8 @@
     <script type="text/javascript" src="~/Scripts/mxGraph/src/mxClient.js"></script>
 
     <!-- Slickflow kgraph main files -->
+    <script type="text/javascript" src="~/ViewJS/kmsgbox.js"></script>
+    <script type="text/javascript" src="~/ViewJS/kresource.js"></script>
     <script type="text/javascript" src="~/ViewJS/mxfile.js"></script>
     <script type="text/javascript" src="~/ViewJS/kloader.js"></script>
     <script type="text/javascript" src="~/ViewJS/kmain.js"></script>
@@ -118,6 +119,8 @@
     </script>
     <script type="text/javascript">
         $(function () {
+            kresource.localize();
+
             kmain.init();
             kmain.showDiagramReadOnly();
 
@@ -129,14 +132,13 @@
         //it's readonly for business process veiwer.
         function loadProcessGraph() {
             var appInstanceID = '@ViewBag.AppInstanceID';
-            var processID = '@ViewBag.ProcessID';
             if (appInstanceID === '') {
                 return;
             }
 
             var query = {
                 ProcessGUID: '@ViewBag.ProcessGUID',
-                ProcessVersion: "1"
+                Version: '@ViewBag.Version',
             };
 
             $('#loading-indicator2').show();
@@ -145,27 +147,24 @@
             jshelper.ajaxPost('api/Wf2Xml/QueryProcessFile',
                 JSON.stringify(query),
                 function (result) {
-                    if (result.Status == 1) {
-                        var graphData = kloader.load(result.Entity);
+                    if (result.Status === 1) {
+                        kloader.load(result.Entity);
 
                         //render running nodes with red color
                         var taskQuery = {
                             "AppInstanceID": '@ViewBag.AppInstanceID',
-                            "ProcessGUID": '@ViewBag.ProcessGUID'
+                            "ProcessGUID": '@ViewBag.ProcessGUID',
+                            "Version": '@ViewBag.Version'
                         };
 
                         jshelper.ajaxPost('api/Wf2Xml/QueryReadyActivityInstance',
                             JSON.stringify(taskQuery), function (result) {
-                                if (result.Status == 1) {
+                                if (result.Status === 1) {
                                     kmain.renderReadyTasks(result.Entity);
 
                                     $('#loading-indicator2').hide();
                                 } else {
-                                    $.msgBox({
-                                        title: "Process / KGraph",
-                                        content: kresource.getItem('processdiagramreaderrormsg') + result.Message,
-                                        type: "error"
-                                    });
+                                    kmsgbox.error(kresource.getItem('processdiagramreaderrormsg'), result.Message);
                                 }
                             });
                         jshelper.ajaxPost('api/Wf2Xml/QueryCompletedTransitionInstance',
@@ -174,19 +173,11 @@
                                     kmain.renderCompletedTransitions(result.Entity);
                                     $('#loading-indicator2').hide();
                                 } else {
-                                    $.msgBox({
-                                        title: "Process / KGraph",
-                                        content: kresource.getItem('processdiagramreaderrormsg') + result.Message,
-                                        type: "error"
-                                    });
+                                    kmsgbox.error(kresource.getItem('processdiagramreaderrormsg'), result.Message);
                                 }
                             });
                     } else {
-                        $.msgBox({
-                            title: "Process / KGraph",
-                            content: kresource.getItem('processdiagramreaderrormsg') + result.Message,
-                            type: "error"
-                        });
+                        kmsgbox.error(kresource.getItem('processdiagramreaderrormsg'), result.Message);
                     }
                 }
             );

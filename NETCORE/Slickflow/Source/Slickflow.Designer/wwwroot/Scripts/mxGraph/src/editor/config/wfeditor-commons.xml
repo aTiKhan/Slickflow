@@ -1,9 +1,9 @@
-<mxEditor defaultGroup="group" defaultEdge="edge"
-	helpWindowImage="scripts/mxGraph/src/editor/images/help.gif"
-	tasksWindowImage="scripts/mxGraph/src/editor/images/tasks.gif"
+<mxEditor defaultGroup="group" defaultEdge="transition"
+	helpWindowImage="Scripts/mxGraph/src/editor/images/help.gif"
+	tasksWindowImage="Scripts/mxGraph/src/editor/images/tasks.gif"
 	forcedInserting="0"
 	swimlaneRequired="0">
-	<include name="scripts/mxGraph/src/editor/config/editor-commons.xml"/>
+	<include name="Scripts/mxGraph/src/editor/config/editor-commons.xml"/>
 	<add as="onInit">
 		function ()
 		{
@@ -24,7 +24,15 @@
 			</Group>
 		</add>
     <add as="edge">
-      <Transition label="" id="" from="" to="">
+      <Edge label="" from="" to="">
+        <Description></Description>
+        <mxCell edge="1">
+          <mxGeometry as="geometry" relative="1"/>
+        </mxCell>
+      </Edge>
+    </add>
+   <add as="transition">
+      <Transition label="" from="" to="">
         <Description></Description>
         <Condition type="">
           <ConditionText></ConditionText>
@@ -36,8 +44,23 @@
         </mxCell>
       </Transition>
     </add>
+    <add as="message">
+      <Message label="" from="" to="">
+        <Description></Description>
+        <mxCell edge="1" style="message">
+          <mxGeometry as="geometry" relative="1"/>
+        </mxCell>
+      </Message>
+    </add>
+    <!--<add as="pool">
+      <Pool label="Pool" description="" href="">
+        <mxCell vertex="1" style="pool" connectable="0">
+          <mxGeometry as="geometry" width="300" height="160"/>
+        </mxCell>
+      </Pool>
+    </add>-->
 		<add as="swimlane">
-			<Swimlane label="Swimlane" description="" href="">
+			<Swimlane label="Swimlane" type="" description="" href="">
 				<mxCell vertex="1" style="swimlane" connectable="0">
 					<mxGeometry as="geometry" width="300" height="160"/>
 				</mxCell>
@@ -55,6 +78,18 @@
 				</mxCell>
 			</Activity>
 		</add>
+    <add as="servicetask">
+      <Activity label="Service" name="" code="">
+        <Description></Description>
+        <ActivityType type="ServiceNode"/>
+        <Performers></Performers>
+        <Services></Services>
+        <Boundaries></Boundaries>
+        <mxCell vertex="1" style="symbol;image=images/symbols/service_task.png">
+          <mxGeometry as="geometry" width="72" height="32"/>
+        </mxCell>
+      </Activity>
+    </add>
     <add as="multipleinstance">
       <Activity label="MultipleInstance" name="" code="">
         <Description></Description>
@@ -69,7 +104,7 @@
     <add as="subprocess">
       <Activity label="Subprocess"  name="" code="">
         <Description></Description>
-        <ActivityType type="SubProcessNode"  subId=""/>
+        <ActivityType type="SubProcessNode"  subId="" subType="" subVar="" />
         <Performers></Performers>
         <Actions></Actions>
         <mxCell vertex="1" style="symbol;image=images/symbols/subprocess.png">
@@ -78,89 +113,133 @@
       </Activity>
     </add>
     <add as="start">
-      <Activity label="开始" name="" code="">
+      <Activity label="Start" name="" code="">
         <Description></Description>
         <ActivityType type="StartNode" trigger="None"/>
         <Performers></Performers>
         <Actions></Actions>
-        <mxCell vertex="1" style="symbol;image=scripts/mxGraph/src/editor/images/symbols/event.png">
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/event.png">
           <mxGeometry as="geometry" width="32" height="32"/>
         </mxCell>
       </Activity>
     </add>
     <add as="end">
-      <Activity label="结束" name="" code="">
+      <Activity label="End" name="" code="">
         <Description></Description>
         <ActivityType type="EndNode" trigger="None"/>
         <Performers></Performers>
         <Actions></Actions>
-        <mxCell vertex="1" style="symbol;image=scripts/mxGraph/src/editor/images/symbols/event_end.png">
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/event_end.png">
           <mxGeometry as="geometry" width="32" height="32"/>
         </mxCell>
       </Activity>
     </add>
     <add as="start-timer">
-      <Activity label="定时开始" name="" code="">
+      <Activity label="TimerStart" name="" code="">
         <Description></Description>
         <ActivityType type="StartNode" trigger="Timer"/>
         <Performers></Performers>
         <Actions></Actions>
-        <mxCell vertex="1" style="symbol;image=scripts/mxGraph/src/editor/images/symbols/start_event_timer.png">
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/start_event_timer.png">
           <mxGeometry as="geometry" width="32" height="32"/>
         </mxCell>
       </Activity>
     </add>
     <add as="intermediate-timer">
-      <Activity label="延时" name="" code="">
+      <Activity label="TimerDelay" name="" code="">
         <Description></Description>
         <ActivityType type="IntermediateNode" trigger="Timer"/>
         <Performers></Performers>
         <Actions></Actions>
-        <mxCell vertex="1" style="symbol;image=scripts/mxGraph/src/editor/images/symbols/intermediate_event_timer.png">
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/intermediate_event_timer.png">
           <mxGeometry as="geometry" width="32" height="32"/>
         </mxCell>
       </Activity>
     </add>
     <add as="end-timer">
-      <Activity label="定时结束" name="" code="">
+      <Activity label="TimerEnd" name="" code="">
         <Description></Description>
         <ActivityType type="EndNode" trigger="Timer"/>
         <Performers></Performers>
         <Actions></Actions>
-        <mxCell vertex="1" style="symbol;image=scripts/mxGraph/src/editor/images/symbols/end_event_timer.png">
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/end_event_timer.png">
           <mxGeometry as="geometry" width="32" height="32"/>
         </mxCell>
       </Activity>
     </add>
-    <add as="start-message">
-      <Activity label="消息开始" name="" code="">
+    <add as="start-message-catch">
+      <Activity label="StartMessageCatch" name="" code="">
         <Description></Description>
-        <ActivityType type="StartNode" trigger="Message"/>
+        <ActivityType type="StartNode" trigger="Message" messageDirection="Catch"/>
         <Performers></Performers>
         <Actions></Actions>
-        <mxCell vertex="1" style="symbol;image=scripts/mxGraph/src/editor/images/symbols/message.png">
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/message.png">
           <mxGeometry as="geometry" width="32" height="32"/>
         </mxCell>
       </Activity>
     </add>
-    <add as="end-message">
-      <Activity label="消息结束" name="" code="">
+    <add as="start-message-throw">
+      <Activity label="StartMessageThrow" name="" code="">
         <Description></Description>
-        <ActivityType type="EndNode" trigger="Message"/>
+        <ActivityType type="StartNode" trigger="Message" messageDirection="Throw"/>
         <Performers></Performers>
         <Actions></Actions>
-        <mxCell vertex="1" style="symbol;image=scripts/mxGraph/src/editor/images/symbols/message_end.png">
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/message_throw.png">
+          <mxGeometry as="geometry" width="32" height="32"/>
+        </mxCell>
+      </Activity>
+    </add>
+    <add as="end-message-catch">
+      <Activity label="EndMessageCatch" name="" code="">
+        <Description></Description>
+        <ActivityType type="EndNode" trigger="Message" messageDirection="Catch"/>
+        <Performers></Performers>
+        <Actions></Actions>
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/message_end.png">
+          <mxGeometry as="geometry" width="32" height="32"/>
+        </mxCell>
+      </Activity>
+    </add>
+    <add as="end-message-throw">
+      <Activity label="EndMessageThrow" name="" code="">
+        <Description></Description>
+        <ActivityType type="EndNode" trigger="Message" messageDirection="Throw"/>
+        <Performers></Performers>
+        <Actions></Actions>
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/message_end_throw.png">
           <mxGeometry as="geometry" width="32" height="32"/>
         </mxCell>
       </Activity>
     </add>
     <add as="intermediate">
-      <Activity label="中间事件" name="" code="">
+      <Activity label="InteEvent" name="" code="">
         <Description></Description>
         <ActivityType type="IntermediateNode" trigger="None"/>
         <Performers></Performers>
         <Actions></Actions>
-        <mxCell vertex="1" style="symbol;image=scripts/mxGraph/src/editor/images/symbols/event_intermediate.png">
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/event_intermediate.png">
+          <mxGeometry as="geometry" width="32" height="32"/>
+        </mxCell>
+      </Activity>
+    </add>
+    <add as="intermediate-message-catch">
+      <Activity label="InterMessageCatch" name="" code="">
+        <Description></Description>
+        <ActivityType type="IntermediateNode" trigger="Message" messageDirection="Catch"/>
+        <Performers></Performers>
+        <Actions></Actions>
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/message_intermediate.png">
+          <mxGeometry as="geometry" width="32" height="32"/>
+        </mxCell>
+      </Activity>
+    </add>
+    <add as="intermediate-message-throw">
+      <Activity label="InterMessageThrow" name="" code="">
+        <Description></Description>
+        <ActivityType type="IntermediateNode" trigger="Message" messageDirection="Throw"/>
+        <Performers></Performers>
+        <Actions></Actions>
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/message_intermediate.png">
           <mxGeometry as="geometry" width="32" height="32"/>
         </mxCell>
       </Activity>
@@ -171,7 +250,7 @@
         <ActivityType type="GatewayNode" gatewaySplitJoinType="Split" gatewayDirection=""/>
         <Performers></Performers>
         <Actions></Actions>
-        <mxCell vertex="1" style="symbol;image=scripts/mxGraph/src/editor/images/symbols/fork.png">
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/fork.png">
           <mxGeometry as="geometry" width="72" height="32"/>
         </mxCell>
       </Activity>
@@ -182,7 +261,7 @@
         <ActivityType type="GatewayNode" gatewaySplitJoinType="Join" gatewayDirection="" gatewayJoinPass=""/>
         <Performers></Performers>
         <Actions></Actions>
-        <mxCell vertex="1" style="symbol;image=scripts/mxGraph/src/editor/images/symbols/merge.png">
+        <mxCell vertex="1" style="symbol;image=Scripts/mxGraph/src/editor/images/symbols/merge.png">
           <mxGeometry as="geometry" width="72" height="32"/>
         </mxCell>
       </Activity>

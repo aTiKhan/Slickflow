@@ -30,36 +30,76 @@ var activityproperty = (function () {
     myPageTabs["task"] = ["tabRole", "tabPage", "tabMyProperties", "tabAction", "tabTaskDelay"];
     myPageTabs["mi"] = ["tabMI", "tabRole", "tabPage", "tabMyProperties", "tabAction"];
     myPageTabs["sub"] = ["tabSub", "tabRole", "tabMyProperties", "tabAction"];
+    myPageTabs["service"] = ["tabService"];
     myPageTabs["gateway"] = ["tabGateway"];
     myPageTabs["start"] = ["tabAction"];
     myPageTabs["startCron"] = ["tabStartCron", "tabAction"];
     myPageTabs["end"] = ["tabAction"];
     myPageTabs["endDelay"] = ["tabEndDelay", "tabAction"];
     myPageTabs["intermediate"] = ["tabAction"];
-    
+    myPageTabs["interTimerDelay"] = ["tabTaskDelay", "tabAction"];
+    myPageTabs["startMessage"] = ["tabMessage"];
+    myPageTabs["interMessage"] = ["tabMessage"];
+    myPageTabs["endMessage"] = ["tabMessage"];
+    myPageTabs["conditional"] = ["tabCondition"];
+
     activityproperty.mselectedActivityPerformerGUID = "";
     //activityproperty.mjsoneditor = null;
+
+    //action configuration
+    var myActionPanel = {};
+    myActionPanel["LocalService"] = ["argument", "expression"];
+    myActionPanel["ProcessService"] = ["process"];
+    myActionPanel["CSharpLibrary"] = ["argument", "assembly"];
+    myActionPanel["WebApi"] = ["webapi", "argument", "expression", "submethod"];
+    myActionPanel["SQL"] = ["argument", "codetext"];
+    myActionPanel["StoreProcedure"] = ["argument", "expression"];
+    myActionPanel["Python"] = ["argument", "codetext"];
 
     function initControls() {
         $("#ddlComplexType").prop("selectedIndex", -1);
         $("#ddlMergeType").prop("selectedIndex", -1);
         $("#ddlCompareType").prop("selectedIndex", -1);
 
-        $(".actionmethodoptions-before").on('change', function (e) {
-            if (this.value === "WebApi") {
-                $(".webapioptions-before").show();
-            } else {
-                $(".webapioptions-before").hide();
-            }
+        //action related control
+        $("#ddlActionMethodTypeBefore").on('change', function (e) {
+            showMethodPanel(this.value, 'Before');
         });
 
-        $(".actionmethodoptions-after").on('change', function (e) {
-            if (this.value === "WebApi") {
-                $(".webapioptions-after").show();
-            } else {
-                $(".webapioptions-after").hide();
+        $("#ddlActionMethodTypeAfter").on('change', function (e) {
+            showMethodPanel(this.value, 'After');
+        });
+
+        //service related control
+        $("#ddlServiceMethodType").on('change', function (e) {
+            $(".methoditemhideme").hide();
+            var fields = myActionPanel[this.value];
+
+            if (fields !== undefined) {
+                fields.forEach(function (item, i) {
+                    $("." + item).show();
+                })
             }
         });
+    }
+
+    function showMethodPanel(method, fire) {
+        $(".methoditemhideme").hide();
+        var fields = myActionPanel[method];
+        if (fields !== undefined) {
+            fields.forEach(function (item, i) {
+                var field = item + "-" + fire;
+                $("." + field).show();
+            });
+        }
+    }
+
+    activityproperty.loadActivity = function () {
+        initControls();
+
+        var activity = kmain.mxSelectedDomElement.ElementObject;
+        showTabsByActivityType(activity);
+        dispalyActivityProperty(activity);
     }
 
     function showTabsByActivityType(activity) {
@@ -71,6 +111,8 @@ var activityproperty = (function () {
             tabs = myPageTabs["task"];
         } else if (type === kmodel.Config.NODE_TYPE_MULTIPLEINSTANCE) {
             tabs = myPageTabs["mi"];
+        } else if (type === kmodel.Config.NODE_TYPE_SERVICE) {
+            tabs = myPageTabs["service"];
         } else if (type === kmodel.Config.NODE_TYPE_GATEWAY) {
             tabs = myPageTabs["gateway"];
         } else if (type === kmodel.Config.NODE_TYPE_SUBPROCESS) {
@@ -78,14 +120,28 @@ var activityproperty = (function () {
         } else if (type === kmodel.Config.NODE_TYPE_START) {
             if (activity.trigger === "Timer") {
                 tabs = myPageTabs["startCron"];
+            } else if (activity.trigger === "Message") {
+                tabs = myPageTabs["startMessage"];
+            } else if (activity.trigger === "Conditional") {
+                tabs = myPageTabs["conditional"];
             } else {
                 tabs = myPageTabs["start"];
-            }              
+            }             
         } else if (type === kmodel.Config.NODE_TYPE_INTERMEDIATE) {
-            tabs = myPageTabs["intermediate"];
+            if (activity.trigger === "Timer") {
+                tabs = myPageTabs["interTimerDelay"];
+            } else if (activity.trigger === "Message") {
+                tabs = myPageTabs["interMessage"];
+            } else if (activity.trigger === "Conditional") {
+                tabs = myPageTabs["conditional"];
+            } else {
+                tabs = myPageTabs["intermediate"];
+            }
         } else if (type === kmodel.Config.NODE_TYPE_END) {
             if (activity.trigger === "Timer") {
                 tabs = myPageTabs["endDelay"];
+            } else if (activity.trigger === "Message") {
+                tabs = myPageTabs["endMessage"];
             } else {
                 tabs = myPageTabs["end"];
             }            
@@ -103,20 +159,16 @@ var activityproperty = (function () {
         }
     }
 
-    activityproperty.loadActivity = function () {
-        initControls();
-
-        var activity = kmain.mxSelectedDomElement.Element;
-        showTabsByActivityType(activity);
-
-        dispalyActivityProperty(activity);
-    }
-
     function dispalyActivityProperty(activity) {
         displayInfoCommon(activity);
+
         var type = activity.type;
         if (type === kmodel.Config.NODE_TYPE_TASK) {
             displayInfoTask(activity);
+        } else if (type === kmodel.Config.NODE_TYPE_SERVICE) {
+            activityproperty.loadServices(activity);
+        } else if (type === kmodel.Config.NODE_TYPE_MULTIPLEINSTANCE) {
+            displayInfoMI(activity);
         } else if (type === kmodel.Config.NODE_TYPE_GATEWAY) {
             gatewayproperty.load(activity);
         } else if (type === kmodel.Config.NODE_TYPE_SUBPROCESS) {
@@ -147,8 +199,21 @@ var activityproperty = (function () {
         //load boundary of current activity
         loadActivityBoundary(activity);
 
+        //load sections of current activity
+        loadActivitySections(activity);
+
         //load activityactions
         activityproperty.loadActions(activity);
+    }
+
+    function displayInfoMI(activity) {
+		//render multiple instance node property
+		$("#ddlComplexType").val(activity.complexType);
+		$("#ddlMergeType").val(activity.mergeType);
+		$("#ddlCompareType").val(activity.compareType);
+        $("#txtCompleteOrder").val(activity.completeOrder);
+
+        displayInfoTask(activity);
     }
 
     function displayInfoSub(activity) {
@@ -235,6 +300,23 @@ var activityproperty = (function () {
             $("#txtOverdue").val(boundary.expression);
         }
     }
+
+    //load activity sections
+    function loadActivitySections(activity) {
+        var sections = activity.sections;
+
+        if (sections && sections.length > 0) {
+            for (var i = 0; i < sections.length; i++) {
+                var section = sections[i];
+                if (section.name === "myProperties") {
+                    //fill myProperties info
+                    $("#txtMyProperties").val(section.text);
+                    //activityproperty.mjsoneditor.set(section.text);
+                }
+            }
+        }
+    }
+
 	
 	//#region performers add / delete
 	//add performer to activity performers list
@@ -248,7 +330,7 @@ var activityproperty = (function () {
 
 	//sync activity perfromer datasource
 	activityproperty.syncActivityPerformers = function (participantType, participantItem) {
-		var activity =  kmain.mxSelectedDomElement.Element;
+		var activity =  kmain.mxSelectedDomElement.ElementObject;
 		var performers = activity.performers;
 		if (!performers) {
 			performers = activity.performers = [];
@@ -278,12 +360,8 @@ var activityproperty = (function () {
 				}
 			}
 
-			if (isExisted) {
-				$.msgBox({
-                    title: "Desinger / ActivityProperty",
-                    content: kresource.getItem('syncactivityperformerswarnmsg'),
-					type: "info"
-				});
+            if (isExisted) {
+                kmsgbox.info(kresource.getItem('syncactivityperformerswarnmsg'));
 			} else {
 				var performer = {
 					"id": participantAdded.id,
@@ -329,7 +407,7 @@ var activityproperty = (function () {
 	//del performer from activity performers list
 	activityproperty.delPerformer = function () {
 		var performerGUID = activityproperty.mselectedActivityPerformerGUID;
-        var activity =  kmain.mxSelectedDomElement.Element
+        var activity =  kmain.mxSelectedDomElement.ElementObject
 		var performers = activity.performers;
 
 		//remove the selected performer record 
@@ -353,28 +431,36 @@ var activityproperty = (function () {
                     var action = actions[i];
                     //fill action info
                     if (action && action.type === "Event") {
-                        if (action.fire === "Before") {
-                            $("#ddlActionMethodTypeBefore").val(action.method);
-                            if (action.method === "WebApi") {
-                                $(".webapioptions-before").show();
-                                $("#ddlWebApiMethodBefore").val(action.subMethod);
-                            }
-                            $("#txtActionArgumentsBefore").val(action.arguments);
-                            $("#txtActionExpressionBefore").val(action.expression);
-                        } else if (action.fire === "After") {
-                            $("#ddlActionMethodTypeAfter").val(action.method);
-                            if (action.method === "WebApi") {
-                                $(".webapioptions-after").show();
-                                $("#ddlWebApiMethodAfter").val(action.subMethod);
-                            }
-                            $("#txtActionArgumentsAfter").val(action.arguments);
-                            $("#txtActionExpressionAfter").val(action.expression);
-                        }
+                        loadActionDetail(action);
                     }
                 }
             }
         }
+    }
 
+    function loadActionDetail(action) {
+        var fire = action.fire;
+        if (action.method !== "None") {
+            $("#ddlActionMethodType" + fire).val(action.method).trigger('change');
+        }
+        
+        //input fields
+        $("#txtActionArguments" + fire).val(action.arguments);
+        $("#txtActionExpression" + fire).val(action.expression);
+
+        if (action.method === "WebApi") {
+            $("#ddlWebApiMethod" + fire).val(action.subMethod);
+        } else if (action.method === "SQL" || action.method === "Python") {
+            var codeInfo = action.codeInfo;
+            if (codeInfo !== undefined) $("#txtCodeText" + fire).val(codeInfo.codeText.trim());
+        } else if (action.method === "CSharpLibrary") {
+            var methodInfo = action.methodInfo;
+            if (methodInfo !== undefined) {
+                $("#txtAssemblyFullName" + fire).val(methodInfo.assemblyFullName);
+                $("#txtTypeFullName" + fire).val(methodInfo.typeFullName);
+                $("#txtMethodName" + fire).val(methodInfo.methodName);
+            }
+        }
     }
 
     //save actions
@@ -383,41 +469,130 @@ var activityproperty = (function () {
             activity.actions = [];
 
             var methodBefore = $("#ddlActionMethodTypeBefore").val();
-            var actionBefore = {};
-            actionBefore.type = kmodel.Config.ACTION_TYPE_EVENT;            //"Event";
-            actionBefore.fire = kmodel.Config.ACTION_FIRE_BEFORE;           // "Before";
-            actionBefore.arguments = $("#txtActionArgumentsBefore").val();
-            actionBefore.expression = $("#txtActionExpressionBefore").val();
-            actionBefore.method = methodBefore;
-
-            //sub method before
-            if (methodBefore === kmodel.Config.ACTION_METHOD_TYPE_WEBAPI) {
-                actionBefore.subMethod = $("#ddlWebApiMethodBefore").val();
+            if (methodBefore !== "None") {
+                var actionBefore = setActionDetail("Before", methodBefore);
+                activity.actions.push(actionBefore);
             }
-            activity.actions.push(actionBefore);
 
             var methodAfter = $("#ddlActionMethodTypeAfter").val();
-            var actionAfter = {};
-            actionAfter.type = kmodel.Config.ACTION_TYPE_EVENT;             //"Event";
-            actionAfter.fire = kmodel.Config.ACTION_FIRE_AFTER;             //"After";
-            actionAfter.arguments = $("#txtActionArgumentsAfter").val();
-            actionAfter.expression = $("#txtActionExpressionAfter").val();
-            actionAfter.method = methodAfter;
-
-            //sub method after
-            if (methodAfter === kmodel.Config.ACTION_METHOD_TYPE_WEBAPI) {
-                actionAfter.subMethod = $("#ddlWebApiMethodAfter").val();
+            if (methodAfter !== "None") {
+                var actionAfter = setActionDetail("After", methodAfter);
+                activity.actions.push(actionAfter);
             }
-            activity.actions.push(actionAfter);
             //update node user object
             kmain.setVertexActions(activity.actions);
         }
+    }
+
+    function setActionDetail(fire, method) {
+        var action = {};
+        action.type = kmodel.Config.ACTION_TYPE_EVENT;             //"Event";
+        action.fire = fire;                                       //"Before"/"After";
+        action.arguments = $("#txtActionArguments" + fire).val();
+        action.expression = $("#txtActionExpression" + fire).val();
+        action.method = method;
+
+        //sub method after
+        if (method === kmodel.Config.ACTION_METHOD_TYPE_WEBAPI) {
+            action.subMethod = $("#ddlWebApiMethod" + fire).val();
+        } else if (method === kmodel.Config.ACTION_METHOD_TYPE_SQL
+            || method === kmodel.Config.ACTION_METHOD_TYPE_PYTHON) {
+            var codeInfo = {};
+            codeInfo.codeText = $("#txtCodeText" + fire).val();
+            action.codeInfo = codeInfo;
+        } else if (method === kmodel.Config.ACTION_METHOD_TYPE_CSHARPLIBRARY) {
+            var methodInfo = {};
+            methodInfo.assemblyFullName = $("#txtAssemblyFullName" + fire).val();
+            methodInfo.typeFullName = $("#txtTypeFullName" + fire).val();
+            methodInfo.methodName = $("#txtMethodName" + fire).val();
+            action.methodInfo = methodInfo;
+        }
+        return action;
+    }
+    //#endregion
+
+    //#region services操作
+    //load service
+    activityproperty.loadServices = function (activity) {
+        if (activity) {
+            var services = activity.services;
+            if (services && services.length > 0) {
+                for (var i = 0; i < services.length; i++) {
+                    var service = services[i];
+                    //fill action info
+                    loadServiceDetail(service);
+                }
+            }
+        }
+    }
+
+    function loadServiceDetail(service) {
+        if (service.method !== "None") {
+            $("#ddlServiceMethodType").val(service.method).trigger('change');
+        }
+
+        //input fields
+        $("#txtArgumentsService").val(service.arguments);
+        $("#txtExpressionService").val(service.expression);
+
+        if (service.method === "WebApi") {
+            $("#ddlWebApiMethodService").val(service.subMethod);
+        } else if (service.method === "SQL" || service.method === "Python") {
+            var codeInfo = service.codeInfo;
+            if (codeInfo !== undefined) $("#txtCodeTextService").val(codeInfo.codeText.trim());
+        } else if (service.method === "CSharpLibrary") {
+            var methodInfo = service.methodInfo;
+            if (methodInfo !== undefined) {
+                $("#txtAssemblyFullNameService").val(methodInfo.assemblyFullName);
+                $("#txtTypeFullNameService").val(methodInfo.typeFullName);
+                $("#txtMethodNameService").val(methodInfo.methodName);
+            }
+        }
+    }
+
+    //save services
+    activityproperty.saveServices = function (activity) {
+        if (activity) {
+            activity.services = [];
+
+            var methodService = $("#ddlServiceMethodType").val();
+            if (methodService !== "None") {
+                var service = setServiceDetail(methodService);
+                activity.services.push(service);
+            }
+            //update node user object
+            kmain.setVertexServices(activity.services);
+        }
+    }
+
+    function setServiceDetail(method) {
+        var service = {};
+        service.arguments = $("#txtArgumentsService").val();
+        service.expression = $("#txtExpressionService").val();
+        service.method = method;
+
+        //sub method after
+        if (method === "WebApi") {
+            service.subMethod = $("#ddlWebApiMethodService").val();
+        } else if (method === "SQL"
+            || method === "Python") {
+            var codeInfo = {};
+            codeInfo.codeText = $("#txtCodeTextService").val();
+            service.codeInfo = codeInfo;
+        } else if (method === "CSharpLibrary") {
+            var methodInfo = {};
+            methodInfo.assemblyFullName = $("#txtAssemblyFullNameService").val();
+            methodInfo.typeFullName = $("#txtTypeFullNameService").val();
+            methodInfo.methodName = $("#txtMethodNameService").val();
+            service.methodInfo = methodInfo;
+        }
+        return service;
     }
     //#endregion
 
     //save activity basic information
     activityproperty.saveActivity = function () {
-        var activity = kmain.mxSelectedDomElement.Element;
+        var activity = kmain.mxSelectedDomElement.ElementObject;
         saveActivityCommon(activity);
 
         var type = activity.type;
@@ -425,6 +600,8 @@ var activityproperty = (function () {
             saveTask(activity);
         } else if (type === kmodel.Config.NODE_TYPE_MULTIPLEINSTANCE) {
             saveMI(activity);
+        } else if (type === kmodel.Config.NODE_TYPE_SERVICE) {
+            saveService(activity);
         } else if (type === kmodel.Config.NODE_TYPE_GATEWAY) {
             gatewayproperty.save(activity);
         } else if (type === kmodel.Config.NODE_TYPE_SUBPROCESS) {
@@ -473,6 +650,23 @@ var activityproperty = (function () {
         kmain.setVertexValue(activity);
     }
 
+    function saveMI(activity) {
+        activity.complexType = $("#ddlComplexType").val();
+        activity.mergeType = $("#ddlMergeType").val();
+        activity.compareType = $("#ddlCompareType").val();
+        activity.completeOrder = $("#txtCompleteOrder").val();
+
+        saveTask(activity);
+    }
+
+    function saveService(activity) {
+        //services
+        activityproperty.saveServices(activity);
+
+
+        kmain.setVertexValue(activity);
+    }
+
 	return activityproperty;
 })()
 //#endregion
@@ -490,6 +684,7 @@ var gatewayproperty = (function () {
         OrSplit: "OrSplit",
         OrJoin: "OrJoin",
         XOrSplit: "XOrSplit",
+        ApprovalOrSplit: "ApprovalOrSplit",
         XOrJoin: "XOrJoin",
         EOrJoin: "EOrJoin",
         AndSplitMI: "AndSplitMI",
@@ -544,6 +739,7 @@ var gatewayproperty = (function () {
             { "value": "AndSplit", "text": kresource.getItem('andsplit') },
             { "value": "OrSplit", "text": kresource.getItem('orsplit') },
             { "value": "XOrSplit", "text": kresource.getItem('xorsplit') },
+            { "value": "ApprovalOrSplit", "text": kresource.getItem('approvalorsplit') },
             { "value": "AndSplitMI", "text": kresource.getItem('andsplitmi') },
         ];
 
@@ -589,19 +785,11 @@ var gatewayproperty = (function () {
         var directionType = $("#ddlDirectionType").val();
         var joinPasssType = $("#ddlJoinPassType").val();
 
-        if (splitJoinType == "default") {
-            $.msgBox({
-                title: "Designer / GatewayProperty",
-                content: kresource.getItem("gatewaysavewarnmsg"),
-                type: "info"
-            });
+        if (splitJoinType === "default") {
+            kmsgbox.info(kresource.getItem("gatewaysavewarnmsg"));
             return;
-        } else if (directionType == "default") {
-            $.msgBox({
-                title: "Designer / GatewayProperty",
-                content: kresource.getItem("gatewaydirectionsavewarnmsg"),
-                type: "info"
-            });
+        } else if (directionType === "default") {
+            kmsgbox.info(kresource.getItem("gatewaydirectionsavewarnmsg"));
             return;
         }
 
@@ -651,15 +839,33 @@ var eventproperty = (function () {
     //load activity
     eventproperty.load = function (activity) {
         if (activity) {
-            if (activity.type === kmodel.Config.NODE_TYPE_START
-                && activity.trigger === "Timer") {
-                $("#txtCronExpression").val(activity.expression);
+            if (activity.type === kmodel.Config.NODE_TYPE_START) {
+                if (activity.trigger === "Timer") {
+                    $("#txtCronExpression").val(activity.expression);
+                } else if (activity.trigger === "Message") {
+                    $("#txtMessageTopic").val(activity.expression);
+                } else if (activity.trigger === "Conditional") {
+                    $("#txtCondition").val(activity.expression);
+                }
             }
-            else if (activity.type === kmodel.Config.NODE_TYPE_END
-                && activity.trigger === "Timer") {
-                $("#txtDeadline").val(activity.expression);
+            else if (activity.type === kmodel.Config.NODE_TYPE_END) {
+                if (activity.trigger === "Timer") {
+                    $("#txtDeadline").val(activity.expression);
+                } else if (activity.trigger === "Message") {
+                    $("#txtMessageTopic").val(activity.expression);
+                } else if (activity.trigger === "Conditional") {
+                    $("#txtCondition").val(activity.expression);
+                }
             }
-
+            else if (activity.type === kmodel.Config.NODE_TYPE_INTERMEDIATE) {
+                if (activity.trigger === "Timer") {
+                    $("#txtOverdue").val(activity.expression);
+                } else if (activity.trigger === "Message") {
+                    $("#txtMessageTopic").val(activity.expression);
+                } else if (activity.trigger === "Conditional") {
+                    $("#txtCondition").val(activity.expression);
+                }
+            }
             activityproperty.loadActions(activity);
         }
     }
@@ -667,13 +873,32 @@ var eventproperty = (function () {
     //save activity basic information
     eventproperty.save = function (activity) {
         if (activity) {
-            if (activity.type === kmodel.Config.NODE_TYPE_START
-                && activity.trigger === "Timer") {
-                activity.expression = $("#txtCronExpression").val();
+            if (activity.type === kmodel.Config.NODE_TYPE_START) {
+                if (activity.trigger === "Timer") {
+                    activity.expression = $("#txtCronExpression").val();
+                } else if (activity.trigger === "Message") {
+                    activity.expression = $("#txtMessageTopic").val();
+                } else if (activity.trigger === "Conditional") {
+                    activity.expression = $("#txtCondition").val();
+                }
             }
-            else if (activity.type === kmodel.Config.NODE_TYPE_END
-                && activity.trigger === "Timer") {
-                activity.expression = $("#txtDeadline").val();
+            else if (activity.type === kmodel.Config.NODE_TYPE_END) {
+                if (activity.trigger === "Timer") {
+                    activity.expression = $("#txtDeadline").val();
+                } else if (activity.trigger === "Message") {
+                    activity.expression = $("#txtMessageTopic").val();
+                } else if (activity.trigger === "Conditional") {
+                    activity.expression = $("#txtCondition").val();
+                }
+            }
+            else if (activity.type === kmodel.Config.NODE_TYPE_INTERMEDIATE) {
+                if (activity.trigger === "Timer") {
+                    activity.expression = $("#txtOverdue").val();
+                } else if (activity.trigger === "Message") {
+                    activity.expression = $("#txtMessageTopic").val();
+                } else if (activity.trigger === "Conditional") {
+                    activity.expression = $("#txtCondition").val();
+                }
             }
 
             //save actions
@@ -696,9 +921,15 @@ var subprocessmanager = (function () {
     var msubprocessname = null;
 
     subprocessmanager.load = function (activity) {
-        if (activity !== null && activity.subId !== "") {
-            $("#txtProcessGUID").val(activity.subId);
-            subprocessmanager.getProcess(activity.subId);
+        if (activity !== null) {
+            if (activity.subId !== "") {
+                $("#txtProcessGUID").val(activity.subId);
+                subprocessmanager.getProcess(activity.subId);
+            } else {
+                if (activity.subVar !== "") {
+                    $("#txtSubVar").val(activity.subVar);
+                }
+            }
         }
         subprocessmanager.getProcessList();
     }
@@ -741,28 +972,18 @@ var subprocessmanager = (function () {
                 function onRowDoubleClicked(e, args) {
                     var currentProcessGUID = $("#txtProcessGUID").val();
                     if (currentProcessGUID !== msubprocessguid) {
-                        $.msgBox({
-                            title: "Are You Sure",
-                            content: kresource.getItem("subprocessconfirmmsg"),
-                            type: "confirm",
-                            buttons: [{ value: "Yes" }, { value: "Cancel" }],
-                            success: function (result) {
-                                if (result == "Yes") {
-                                    $("#txtProcessGUID").val(msubprocessguid);
-                                    $("#txtProcessName").val(msubprocessname);
-                                    return;
-                                }
+                        kmsgbox.confirm(kresource.getItem("subprocessconfirmmsg"), function (result) {
+                            if (result === "Yes") {
+                                $("#txtProcessGUID").val(msubprocessguid);
+                                $("#txtProcessName").val(msubprocessname);
+                                return;
                             }
                         });
                     }
                 }
             }
             else {
-                $.msgBox({
-                    title: "Designer / SubProcess",
-                    content: kresource.getItem("processlisterrormsg"),
-                    type: "error"
-                });
+                kmsgbox.error(kresource.getItem("processlisterrormsg"));
             }
         });
 
@@ -778,7 +999,7 @@ var subprocessmanager = (function () {
             && processGUID !== undefined) {
             var query = { "ProcessGUID": processGUID };
             jshelper.ajaxPost('api/Wf2Xml/GetProcess', JSON.stringify(query), function (result) {
-                if (result.Status == 1) {
+                if (result.Status === 1) {
                     var entity = result.Entity;
 
                     $("#txtProcessName").val(entity.ProcessName);
@@ -789,12 +1010,148 @@ var subprocessmanager = (function () {
 
     subprocessmanager.save = function (activity) {
         if (activity) {
-            activity.subId = $("#txtProcessGUID").val();
+            var subProcessId = $("#txtProcessGUID").val();
+            activity.subId = subProcessId;
+            if (subProcessId !== '') {
+                activity.subType = 'Fixed';
+            } else {
+                var subVarName = $("#txtSubVar").val();
+                if (subVarName !== '') {
+                    activity.subType = 'Dynamic';
+                    activity.subVar = subVarName;
+                }
+            }
+            
             //update node user object
             kmain.setVertexValue(activity);
         }
     }
 
     return subprocessmanager;
+})()
+
+var poolproperty = (function () {
+    function poolproperty() {
+    }
+
+    poolproperty.loadPool = function () {
+        initControls();
+        var pool = kmain.mxSelectedDomElement.ElementObject;
+        $("#txtPoolTitle").val(pool.title);
+
+        // 获取泳道绑定的流程信息
+        var process = pool.process;        
+        if (process !== undefined) {
+            $("#ddlPackageType").val(process.package);
+            $("#txtProcessGUID").val(process.id);
+            $("#txtProcessName").val(process.name);
+            $("#txtProcessCode").val(process.code);
+            $("#txtProcessDescription").val(process.description);
+        }
+    }
+
+    function initControls() {
+        var bindingProcess = kmain.mpoolPropertyDialog.getData('bindingProcess');
+        if (bindingProcess === true) {
+            $("#divBindingProcess").show();
+        } else {
+            $("#divBindingProcess").hide();
+        }
+
+        var process = {};
+        $("#ddlPackageType").change(function () {
+            var pool = kmain.mxSelectedDomElement.ElementObject;
+            var packageType = $("#ddlPackageType").val();
+            if (packageType === "MainProcess") {   
+                //唯一性检查，只能有一个主流程
+                if (isNotUniqueMainProcessOfCurrentPool() === true) {
+                    kmsgbox.warn(kresource.getItem("processpooluniquewarnmsg"));
+                    $("#ddlPackageType").val("PoolProcess");
+                    return false;
+                } else {
+                    //主流程
+                    process = kmain.mxSelectedProcessEntity;
+                    if (process !== null) {
+                        $("#txtProcessGUID").val(process.ProcessGUID);
+                        $("#txtProcessName").val(process.ProcessName);
+                        $("#txtProcessCode").val(process.ProcessCode);
+                        $("#txtProcessDescription").val(process.Description);
+                    } else {
+                        var newProcessGUID = jshelper.getUUID();
+                        $("#txtProcessGUID").val(newProcessGUID);
+                    }
+                }
+            } else if (packageType === "PoolProcess") {
+                //泳道流程
+                process = pool.process;
+                if (process !== undefined) {
+                    $("#txtProcessGUID").val(process.id);
+                    $("#txtProcessName").val(process.name);
+                    $("#txtProcessCode").val(process.code);
+                    $("#txtProcessDescription").val(process.description);
+                } else {
+                    var newProcessGUID = jshelper.getUUID();
+                    $("#txtProcessGUID").val(newProcessGUID);
+                    $("#txtProcessName").val("");
+                    $("#txtProcessCode").val("");
+                    $("#txtProcessDescription").val();
+                }
+            }            
+        });
+    }
+
+    function isNotUniqueMainProcessOfCurrentPool() {
+        var isNotUnique = false;
+        var cell = kmain.mxSelectedDomElement.Cell;
+        var pool = kmain.mxSelectedDomElement.ElementObject;
+        var model = kmain.mxGraphEditor.graph.getModel();
+        var childNodeList = model.getChildVertices(kmain.mxGraphEditor.graph.getDefaultParent());
+        //列表检查
+        for (var i = 0; i < childNodeList.length; i++) {
+            var childNode = childNodeList[i];
+            var childNodeValue = model.getValue(childNode);
+            if (childNodeValue.nodeName === "Swimlane") {
+                if (childNode.id !== cell.id) {
+                    if (childNodeValue.getAttribute("type") === "MainProcess") {
+                        isNotUnique = true;
+                        break;
+                    }
+                } 
+            }
+        }
+        return isNotUnique;
+    }
+
+    poolproperty.savePool = function () {
+        var pool = kmain.mxSelectedDomElement.ElementObject;
+        pool.title = $("#txtPoolTitle").val();
+        pool.type = $("#ddlPackageType").val();
+        
+        var bindingProcess = kmain.mpoolPropertyDialog.getData('bindingProcess');
+        if (bindingProcess === true) {
+            var process = pool.process;
+            if (process === undefined) {
+                process = {};
+            }
+
+            process.id = $("#txtProcessGUID").val();
+            process.package = $("#ddlPackageType").val();
+            process.name = $("#txtProcessName").val();
+            process.code = $("#txtProcessCode").val();
+            process.description = $("#txtProcessDescription").val();
+
+            if (process.package.trim() === ""
+                || process.name.trim() === ""
+                || process.code.trim() === "") {
+                kmsgbox.warn(kresource.getItem("processxmlsavepoolwarnmsg"));
+                return false;
+            }
+            pool.process = process;
+        }
+        kmain.setPoolValue(pool);
+        kmain.mpoolPropertyDialog.close();
+    }
+
+    return poolproperty;
 })()
 //#endregion
